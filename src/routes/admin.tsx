@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin")({
@@ -72,6 +73,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           <Button asChild variant="ghost" size="sm">
             <Link to="/">Back to chat</Link>
           </Button>
+          <ThemeToggle />
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
