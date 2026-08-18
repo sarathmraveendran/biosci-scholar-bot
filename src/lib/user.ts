@@ -14,6 +14,20 @@ export function useDisplayName() {
       /* ignore */
     }
     setReady(true);
+    const sync = () => {
+      try {
+        const v = window.localStorage.getItem(NAME_KEY);
+        setNameState(v && v.trim() ? v : null);
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener("phd-name-change", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("phd-name-change", sync);
+      window.removeEventListener("storage", sync);
+    };
   }, []);
 
   const setName = useCallback((value: string | null) => {
@@ -25,6 +39,7 @@ export function useDisplayName() {
       /* ignore */
     }
     setNameState(clean);
+    window.dispatchEvent(new Event("phd-name-change"));
   }, []);
 
   return { name, setName, ready };
