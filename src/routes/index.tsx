@@ -9,6 +9,9 @@ import { toast } from "sonner";
 
 import { askQuestion, getChapters, getIndexStatus } from "@/lib/rag.functions";
 import { SourceList, type Source } from "@/components/chat/SourceList";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserMenu } from "@/components/UserMenu";
+import { useDisplayName } from "@/lib/user";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -78,21 +81,27 @@ const EVIDENCE_LABEL: Record<string, { label: string; className: string }> = {
 
 function Home() {
   const ask = useServerFn(askQuestion);
-  const [messages, setMessages] = useState<ChatMessage[]>(loadConversation);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<Mode>("book");
   const [pending, setPending] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  const { name: displayName } = useDisplayName();
   const chapters = useQuery({ queryKey: ["chapters"], queryFn: () => getChapters() });
   const status = useQuery({ queryKey: ["index-status"], queryFn: () => getIndexStatus() });
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-40)));
-    }
-  }, [messages]);
+    setMessages(loadConversation());
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-40)));
+  }, [messages, hydrated]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -151,6 +160,8 @@ function Home() {
               Grounded Q&amp;A on <em>How to write a PhD in Biological Sciences</em> by John Measey
             </p>
           </div>
+          <UserMenu />
+          <ThemeToggle />
           <Button asChild variant="ghost" size="sm">
             <Link to="/admin">
               <ShieldCheck className="size-4" /> Admin
@@ -258,7 +269,9 @@ function Home() {
           {empty ? (
             <div className="rounded-lg border border-border bg-paper p-6">
               <h2 className="font-serif text-2xl font-semibold">
-                Ask anything about writing your PhD
+                {displayName
+                  ? `${displayName}, ask anything about writing your PhD`
+                  : "Ask anything about writing your PhD"}
               </h2>
               <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground">
                 Every answer is retrieved from the open-source book{" "}
