@@ -1,9 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   BookOpen,
-  Brain,
   CheckCircle2,
-  FileText,
+  FileSearch,
   MessageSquare,
   Search,
   ShieldCheck,
@@ -21,13 +20,13 @@ export const Route = createFileRoute("/how-it-works")({
       {
         name: "description",
         content:
-          "Learn how the PhD Book Assistant retrieves answers from John Measey's open-source book, ranks passages and cites every claim.",
+          "Learn how the PhD Book Assistant answers your questions using only the open-source book, with citations to every source passage.",
       },
       { property: "og:title", content: "How it works — PhD Book Assistant" },
       {
         property: "og:description",
         content:
-          "Retrieval-augmented Q&A with hybrid search, grounded answers and source citations from 'How to write a PhD in Biological Sciences'.",
+          "Grounded Q&A on writing a biology PhD: answers come from the book, with citations to every source passage.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -59,174 +58,118 @@ function HowItWorksPage() {
       </header>
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">
-        <div className="mb-10 text-center">
+        <div className="mb-12 text-center">
           <h2 className="font-serif text-3xl font-semibold tracking-tight sm:text-4xl">
-            How this assistant works
+            How this assistant answers your questions
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-            Every answer is retrieved from the open-source book{" "}
-            <em>How to write a PhD in Biological Sciences</em> before it is written. The assistant
-            cites the exact passages it used, so you can verify every claim.
+            The assistant is built around one rule: answer from the book, not from memory. Every
+            reply is tied to actual passages from{" "}
+            <em>How to write a PhD in Biological Sciences</em>, so you can see exactly where the
+            information came from.
           </p>
         </div>
 
         <section className="space-y-10">
-          <Step
-            number={1}
-            icon={<FileText className="size-5" />}
-            title="The book is indexed from GitHub"
-          >
+          <Step number={1} icon={<BookOpen className="size-5" />} title="It knows one book well">
             <p>
-              The source material comes from John Measey's public GitHub repository. The ingestion
-              pipeline reads the <code>.Rmd</code> and <code>.md</code> chapter files, cleans out
-              code blocks and LaTeX markup, and splits each chapter into semantic chunks of roughly
-              400–800 tokens.
-            </p>
-            <p>
-              Each chunk is stored with its metadata — chapter number, section heading, source file
-              path and a link back to the original GitHub line range — so citations can point to the
-              primary source.
+              The assistant has read the open-source book <em>How to write a PhD in Biological
+              Sciences</em> by John Measey. It does not browse the web or rely on general knowledge.
+              Everything it tells you is drawn from that book.
             </p>
           </Step>
 
-          <Step
-            number={2}
-            icon={<Brain className="size-5" />}
-            title="Chunks are turned into searchable vectors"
-          >
+          <Step number={2} icon={<Search className="size-5" />} title="It finds the right pages">
             <p>
-              Every chunk is converted into a dense embedding vector using an OpenAI embedding
-              model. These vectors live in a pgvector index in the database, which makes semantic
-              search fast: questions and passages with similar meaning are ranked close together
-              even when they do not share the same words.
+              When you ask a question, the assistant searches the book for passages that match what
+              you asked. It looks for both the meaning of your question and the exact words you
+              used, then picks the most relevant sections.
             </p>
           </Step>
 
-          <Step
-            number={3}
-            icon={<Search className="size-5" />}
-            title="Hybrid retrieval combines meaning and keywords"
-          >
+          <Step number={3} icon={<Sparkles className="size-5" />} title="It writes an answer from those pages">
             <p>
-              When you ask a question, the assistant runs two searches in parallel:
-            </p>
-            <ul className="ml-5 list-disc space-y-2">
-              <li>
-                <strong>Vector search</strong> finds passages that are semantically similar to
-                your question.
-              </li>
-              <li>
-                <strong>Full-text search</strong> finds passages that contain the exact words you
-                used.
-              </li>
-            </ul>
-            <p>
-              The results are merged with Reciprocal Rank Fusion (RRF), so a passage that scores
-              well in both searches rises to the top. The top 5–8 passages are passed to the
-              language model.
+              The assistant reads the selected passages and writes a clear answer based only on
+              what it found. If the book does not cover your topic, it will say so instead of
+              guessing.
             </p>
           </Step>
 
-          <Step
-            number={4}
-            icon={<Sparkles className="size-5" />}
-            title="The answer is generated from the retrieved passages"
-          >
+          <Step number={4} icon={<FileSearch className="size-5" />} title="It shows you the sources">
             <p>
-              A Gemini model is shown only the retrieved passages and your question. It is
-              instructed to answer strictly from those passages, to cite the sources it uses, and to
-              say "not found in the book" when the evidence is too weak.
-            </p>
-            <p>
-              The model returns a structured response that includes the final answer, a
-              groundedness label, and the list of passages it actually relied on.
+              Every answer includes a "Sources" section with links back to the original book
+              passages on GitHub. You can expand each source to read the exact quote and check it
+              for yourself.
             </p>
           </Step>
 
-          <Step
-            number={5}
-            icon={<CheckCircle2 className="size-5" />}
-            title="Every answer is labelled and cited"
-          >
-            <p>Below each reply you will see:</p>
+          <Step number={5} icon={<CheckCircle2 className="size-5" />} title="It tells you how confident it is">
+            <p>Each reply is labelled so you know how strongly the book supports it:</p>
             <ul className="ml-5 list-disc space-y-2">
               <li>
                 <strong>Well supported by the book</strong> — the answer is built directly from one
-                or more retrieved passages.
+                or more passages.
               </li>
               <li>
-                <strong>Partially supported</strong> — some claims are grounded, but the question
-                stretches beyond the retrieved text.
+                <strong>Partially supported</strong> — some parts are grounded in the book, but the
+                answer also covers ground the book does not fully address.
               </li>
               <li>
                 <strong>Not found in the book</strong> — the book does not contain enough information
                 to answer reliably.
               </li>
             </ul>
-            <p>
-              Each used passage is listed as a source with a GitHub link and an expandable quote, so
-              you can read the original context.
-            </p>
           </Step>
         </section>
 
         <section className="mt-14 rounded-xl border border-border bg-paper p-6 sm:p-8">
           <div className="flex items-center gap-2">
             <MessageSquare className="size-5 text-primary" />
-            <h3 className="font-serif text-xl font-semibold">Answer modes</h3>
+            <h3 className="font-serif text-xl font-semibold">Two ways to answer</h3>
           </div>
           <div className="mt-4 grid gap-6 sm:grid-cols-2">
             <div>
               <h4 className="font-semibold">Book only</h4>
               <p className="mt-1 text-sm text-muted-foreground">
-                The default. The assistant answers using only the retrieved book passages. If the
-                book is silent, it says so.
+                The default. The assistant sticks strictly to the book. If the book does not cover
+                something, it says so.
               </p>
             </div>
             <div>
               <h4 className="font-semibold">Book + explanation</h4>
               <p className="mt-1 text-sm text-muted-foreground">
-                The assistant still grounds the answer in the book, then adds clearly separated
-                general academic-writing context that is not from the book.
+                The assistant still answers from the book first, then adds a short general
+                explanation in a separate, clearly labelled section.
               </p>
             </div>
           </div>
         </section>
 
         <section className="mt-8 rounded-xl border border-border bg-paper p-6 sm:p-8">
-          <h3 className="font-serif text-xl font-semibold">Privacy & data</h3>
+          <h3 className="font-serif text-xl font-semibold">What this means for you</h3>
           <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
             <li>
-              Your conversation is stored in your browser's <code>localStorage</code>, not on the
-              server. It stays on your device.
+              <strong>You can trust the citations.</strong> Click any source link to read the
+              original passage in the book.
             </li>
             <li>
-              The name you enter for the greeting is also stored locally and can be changed or
-              cleared at any time from the user menu.
+              <strong>You know when the answer is thin.</strong> The confidence label stops the
+              assistant from pretending to know something it does not.
             </li>
             <li>
-              Questions are sent to the server to run retrieval and generation, but they are not
-              used to train any model.
+              <strong>Your chat is private.</strong> Your conversation is saved in your browser, not
+              on our servers. Only your questions are sent to the server to generate answers.
+            </li>
+            <li>
+              <strong>It is okay to ask follow-ups.</strong> The assistant understands the context
+              of your conversation, so you can keep refining your question.
             </li>
           </ul>
-        </section>
-
-        <section className="mt-8 rounded-xl border border-border bg-paper p-6 sm:p-8">
-          <h3 className="font-serif text-xl font-semibold">Evaluation & quality</h3>
-          <p className="mt-2 text-sm text-muted-foreground">
-            The admin console includes a benchmark suite of known questions with expected sources.
-            Running the suite checks whether the retrieval step returns the right passages and
-            whether the generated answer stays grounded in the book. This helps catch drift or
-            hallucinations after the book is re-indexed.
-          </p>
         </section>
 
         <div className="mt-12 flex flex-wrap items-center justify-center gap-3">
           <Button asChild size="lg">
             <Link to="/">Try asking a question</Link>
-          </Button>
-          <Button asChild variant="outline" size="lg">
-            <Link to="/admin">Open admin console</Link>
           </Button>
         </div>
       </main>
