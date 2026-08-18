@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const HistorySchema = z
@@ -91,50 +90,6 @@ export const getIndexStatus = createServerFn({ method: "GET" }).handler(async ()
 
 /* ------------------------------- admin ---------------------------------- */
 
-async function assertAdmin(userId: string) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await supabaseAdmin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!data) throw new Error("Forbidden: admin role required");
-}
-
-export const getAdminState = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [{ data: mine }, { count: admins }] = await Promise.all([
-      supabaseAdmin
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", context.userId)
-        .eq("role", "admin")
-        .maybeSingle(),
-      supabaseAdmin.from("user_roles").select("id", { count: "exact", head: true }).eq("role", "admin"),
-    ]);
-    return { isAdmin: Boolean(mine), adminExists: (admins ?? 0) > 0 };
-  });
-
-/** The first signed-in user can claim the admin role; afterwards it is closed. */
-export const claimAdmin = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { count } = await supabaseAdmin
-      .from("user_roles")
-      .select("id", { count: "exact", head: true })
-      .eq("role", "admin");
-    if ((count ?? 0) > 0) throw new Error("An administrator already exists for this app.");
-    const { error } = await supabaseAdmin
-      .from("user_roles")
-      .insert({ user_id: context.userId, role: "admin" });
-    if (error) throw new Error(error.message);
-    return { isAdmin: true };
-  });
-
 const IngestSchema = z.object({
   offset: z.number().int().min(0).default(0),
   limit: z.number().int().min(1).max(6).default(3),
@@ -143,10 +98,8 @@ const IngestSchema = z.object({
 });
 
 export const ingestBatch = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => IngestSchema.parse(input))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+  .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { embedTexts } = await import("./ai.server");
     const ingest = await import("./ingest.server");
@@ -246,14 +199,12 @@ export const ingestBatch = createServerFn({ method: "POST" })
   });
 
 export const debugRetrieval = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z.object({ query: z.string().min(2), matchCount: z.number().int().min(1).max(20).default(8) }).parse(
       input,
     ),
   )
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+  .handler(async ({ data }) => {
     const { retrieve, buildStandaloneQuery } = await import("./rag.server");
     const standalone = await buildStandaloneQuery(data.query, []);
     const rows = await retrieve(standalone, data.matchCount);
@@ -275,12 +226,10 @@ export const debugRetrieval = createServerFn({ method: "POST" })
   });
 
 export const runEvaluation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z.object({ questionId: z.string().uuid() }).parse(input),
   )
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+  .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { answerQuestion } = await import("./rag.server");
 
@@ -339,9 +288,7 @@ export const getChapters = createServerFn({ method: "GET" }).handler(async () =>
 });
 
 export const listEvaluationQuestions = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
+  .handler(async () => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [questions, results] = await Promise.all([
       supabaseAdmin.from("evaluation_questions").select("*").order("created_at"),
