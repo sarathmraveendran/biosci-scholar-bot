@@ -89,6 +89,7 @@ function Home() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  const { name: displayName } = useDisplayName();
   const chapters = useQuery({ queryKey: ["chapters"], queryFn: () => getChapters() });
   const status = useQuery({ queryKey: ["index-status"], queryFn: () => getIndexStatus() });
 
@@ -268,7 +269,9 @@ function Home() {
           {empty ? (
             <div className="rounded-lg border border-border bg-paper p-6">
               <h2 className="font-serif text-2xl font-semibold">
-                Ask anything about writing your PhD
+                {displayName
+                  ? `${displayName}, ask anything about writing your PhD`
+                  : "Ask anything about writing your PhD"}
               </h2>
               <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground">
                 Every answer is retrieved from the open-source book{" "}
