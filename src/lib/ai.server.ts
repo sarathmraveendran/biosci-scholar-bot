@@ -63,32 +63,54 @@ export async function chatCompletion(
   options: { model?: string; temperature?: number } = {},
 ): Promise<string> {
   const key = requireLovableApiKey();
-  const res = await fetch(`${GATEWAY}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Lovable-API-Key": key,
-      "X-Lovable-AIG-SDK": "fetch",
-    },
-    body: JSON.stringify({
-      model: options.model ?? ANSWER_MODEL,
-      messages,
-      ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
-    }),
-  });
+  const maxAttempts = 4;
 
-  if (!res.ok) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const res = await fetch(`${GATEWAY}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Lovable-API-Key": key,
+        "X-Lovable-AIG-SDK": "fetch",
+      },
+      body: JSON.stringify({
+        model: options.model ?? ANSWER_MODEL,
+        messages,
+        ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+      }),
+    });
+
+    if (res.ok) {
+      const json = (await res.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      return json.choices?.[0]?.message?.content ?? "";
+    }
+
     const body = await res.text();
-    if (res.status === 429) throw new Error("The assistant is rate limited right now. Please try again shortly.");
-    if (res.status === 402) throw new Error("AI credits are exhausted for this workspace. Please add credits to continue.");
+    const retryable = res.status === 429 || res.status >= 500;
+
+    if (retryable && attempt < maxAttempts - 1) {
+      const retryAfter = Number(res.headers.get("retry-after"));
+      const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
+        ? retryAfter * 1000
+        : Math.min(15000, 1200 * 2 ** attempt) + Math.random() * 400;
+      await sleep(waitMs);
+      continue;
+    }
+
+    if (res.status === 429) {
+      throw new Error("The assistant is busy (rate limited). Please wait a few seconds and ask again.");
+    }
+    if (res.status === 402) {
+      throw new Error("AI credits are exhausted for this workspace. Please add credits to continue.");
+    }
     throw new Error(`AI request failed [${res.status}]: ${body}`);
   }
 
-  const json = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  return json.choices?.[0]?.message?.content ?? "";
+  throw new Error("The assistant is busy (rate limited). Please wait a few seconds and ask again.");
 }
+
 
 /** Extract a JSON object from a model response that may be fenced or prefixed. */
 export function parseJsonObject<T>(text: string): T | null {
