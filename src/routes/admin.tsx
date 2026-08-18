@@ -71,6 +71,9 @@ function Shell({ children }: { children: React.ReactNode }) {
           <BookOpen className="size-5 text-primary" />
           <h1 className="flex-1 font-serif text-lg font-semibold">Admin console</h1>
           <Button asChild variant="ghost" size="sm">
+            <Link to="/how-it-works">How it works</Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm">
             <Link to="/">Back to chat</Link>
           </Button>
           <ThemeToggle />

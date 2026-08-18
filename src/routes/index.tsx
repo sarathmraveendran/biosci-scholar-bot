@@ -163,6 +163,9 @@ function Home() {
           <UserMenu />
           <ThemeToggle />
           <Button asChild variant="ghost" size="sm">
+            <Link to="/how-it-works">How it works</Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm">
             <Link to="/admin">
               <ShieldCheck className="size-4" /> Admin
             </Link>
