@@ -9,32 +9,51 @@ export function requireLovableApiKey(): string {
 export const EMBEDDING_MODEL = "openai/text-embedding-3-small";
 export const ANSWER_MODEL = "google/gemini-3.7-flash";
 
-/** Embed one or more texts. Returns vectors in the same order as the inputs. */
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Embed one or more texts. Returns vectors in the same order as the inputs.
+ *  Retries on rate limits / transient upstream errors with exponential backoff. */
 export async function embedTexts(inputs: string[]): Promise<number[][]> {
   if (inputs.length === 0) return [];
   const key = requireLovableApiKey();
-  const res = await fetch(`${GATEWAY}/embeddings`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Lovable-API-Key": key,
-      "X-Lovable-AIG-SDK": "fetch",
-    },
-    body: JSON.stringify({ model: EMBEDDING_MODEL, input: inputs }),
-  });
 
-  if (!res.ok) {
+  const maxAttempts = 5;
+  let lastError = "";
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const res = await fetch(`${GATEWAY}/embeddings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Lovable-API-Key": key,
+        "X-Lovable-AIG-SDK": "fetch",
+      },
+      body: JSON.stringify({ model: EMBEDDING_MODEL, input: inputs }),
+    });
+
+    if (res.ok) {
+      const json = (await res.json()) as {
+        data: Array<{ index: number; embedding: number[] }>;
+      };
+      const out: number[][] = new Array(inputs.length);
+      for (const row of json.data) out[row.index] = row.embedding;
+      return out;
+    }
+
     const body = await res.text();
-    throw new Error(`Embedding request failed [${res.status}]: ${body}`);
-  }
+    lastError = `Embedding request failed [${res.status}]: ${body}`;
 
-  const json = (await res.json()) as {
-    data: Array<{ index: number; embedding: number[] }>;
-  };
-  const out: number[][] = new Array(inputs.length);
-  for (const row of json.data) out[row.index] = row.embedding;
-  return out;
+    const retryable = res.status === 429 || res.status >= 500;
+    if (!retryable || attempt === maxAttempts - 1) throw new Error(lastError);
+
+    const retryAfter = Number(res.headers.get("retry-after"));
+    const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
+      ? retryAfter * 1000
+      : Math.min(20000, 1500 * 2 ** attempt) + Math.random() * 500;
+    await sleep(waitMs);
+  }
+  throw new Error(lastError);
 }
+
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
