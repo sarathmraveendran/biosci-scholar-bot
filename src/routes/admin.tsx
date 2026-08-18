@@ -1,16 +1,13 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { toast } from "sonner";
-import { BookOpen, Loader2, RefreshCw, Search, ShieldCheck } from "lucide-react";
+import { BookOpen, Loader2, RefreshCw, Search } from "lucide-react";
 
-import { supabase } from "@/integrations/supabase/client";
 import {
   debugRetrieval,
-  getAdminState,
   getIndexStatus,
-  claimAdmin,
   ingestBatch,
   listEvaluationQuestions,
   runEvaluation,
@@ -43,92 +40,6 @@ export const Route = createFileRoute("/admin")({
 });
 
 function AdminPage() {
-  const navigate = useNavigate();
-  const [sessionChecked, setSessionChecked] = useState(false);
-  const [signedIn, setSignedIn] = useState(false);
-
-  useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setSignedIn(Boolean(session));
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      setSignedIn(Boolean(data.session));
-      setSessionChecked(true);
-      if (!data.session) void navigate({ to: "/auth" });
-    });
-    return () => sub.subscription.unsubscribe();
-  }, [navigate]);
-
-  if (!sessionChecked || !signedIn) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        <Loader2 className="size-5 animate-spin" />
-      </div>
-    );
-  }
-  return <AdminConsole />;
-}
-
-function AdminConsole() {
-  const queryClient = useQueryClient();
-  const adminState = useQuery({ queryKey: ["admin-state"], queryFn: () => getAdminState() });
-  const claim = useServerFn(claimAdmin);
-
-  if (adminState.isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        <Loader2 className="size-5 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!adminState.data?.isAdmin) {
-    return (
-      <Shell>
-        <div className="rounded-lg border border-border bg-paper p-6">
-          <h2 className="font-serif text-xl font-semibold">Administrator access required</h2>
-          {adminState.data?.adminExists ? (
-            <p className="mt-2 text-sm text-muted-foreground">
-              This account does not have the administrator role. Ask the existing administrator to
-              grant you access.
-            </p>
-          ) : (
-            <>
-              <p className="mt-2 text-sm text-muted-foreground">
-                No administrator has been set up yet. Claim the role with this account to manage the
-                book index.
-              </p>
-              <Button
-                className="mt-4"
-                onClick={async () => {
-                  try {
-                    await claim({ data: undefined });
-                    toast.success("You are now the administrator.");
-                    await queryClient.invalidateQueries({ queryKey: ["admin-state"] });
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Could not claim role");
-                  }
-                }}
-              >
-                <ShieldCheck className="size-4" /> Claim administrator role
-              </Button>
-            </>
-          )}
-          <Button
-            variant="ghost"
-            className="mt-4 ml-2"
-            onClick={async () => {
-              await supabase.auth.signOut();
-              window.location.href = "/auth";
-            }}
-          >
-            Sign out
-          </Button>
-        </div>
-      </Shell>
-    );
-  }
-
   return (
     <Shell>
       <Tabs defaultValue="ingestion">
